@@ -15,13 +15,19 @@
   ],
   "slug": "asteroid-hunter",
   "title": "Asteroid Hunter",
-  "currentVersion": 1,
+  "currentVersion": 2,
   "versions": [
     {
       "version": 1,
       "date": "2026-02-13",
       "issue": null,
       "description": "Initial release"
+    },
+    {
+      "version": 2,
+      "date": "2026-02-13",
+      "issue": null,
+      "description": "Published v2"
     }
   ],
   "sdkVersion": 1
