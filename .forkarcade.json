@@ -1,5 +1,21 @@
 {
   "template": "space-combat",
-  "engineFiles": ["fa-engine.js", "fa-renderer.js", "fa-input.js", "fa-audio.js"],
-  "gameFiles": ["data.js", "physics.js", "ship.js", "render.js", "main.js"]
+  "engineFiles": [
+    "fa-engine.js",
+    "fa-renderer.js",
+    "fa-input.js",
+    "fa-audio.js"
+  ],
+  "gameFiles": [
+    "data.js",
+    "physics.js",
+    "ship.js",
+    "render.js",
+    "main.js"
+  ],
+  "slug": "asteroid-hunter",
+  "title": "Asteroid Hunter",
+  "currentVersion": 0,
+  "versions": [],
+  "sdkVersion": 1
 }

@@ -1,4 +1,4 @@
-// Space Combat — Entry Point
+// Asteroid Hunter — Entry Point
 // Keybindings, game loop, ForkArcade integration
 (function() {
   'use strict';
@@ -18,7 +18,7 @@
   FA.bindKey('start',     [' ']);
   FA.bindKey('restart',   ['r']);
 
-  // === INPUT (akcje jednorazowe) ===
+  // === INPUT ===
   FA.on('input:action', function(data) {
     var state = FA.getState();
     if (state.screen === 'start' && data.action === 'start') {
@@ -43,7 +43,7 @@
     var state = FA.getState();
     if (state.screen !== 'playing') return;
 
-    // Player input (real-time: isHeld)
+    // Player input
     if (state.ship) {
       state.ship.activeEngines = new Set();
       var turbo = FA.isHeld('turbo') ? cfg.turboMultiplier : 1;
@@ -64,28 +64,19 @@
       if (FA.isHeld('turnRight')) Physics.applyTurn(state.ship, 'right', base * 0.8);
       if (FA.isHeld('shoot')) Ship.playerShoot(state);
 
-      // Fizyka gracza
       Physics.updatePhysics(state.ship);
 
-      // Kamera
+      // Camera
       FA.camera.x = state.ship.x - cfg.canvasWidth / 2;
       FA.camera.y = state.ship.y - cfg.canvasHeight / 2;
     }
 
-    // Enemy AI + fizyka
-    for (var j = 0; j < state.enemies.length; j++) {
-      state.enemies[j].activeEngines = new Set();
-      Ship.updateEnemyAI(state.enemies[j], state.ship, state);
-      Physics.updatePhysics(state.enemies[j]);
-    }
-
-    // Pociski
+    // Asteroids
+    Ship.updateAsteroids(state);
     Ship.updateBullets(state);
+    Ship.checkAsteroidCollision(state);
 
-    // Dryfujace czesci
-    Ship.updateFloatingParts(state);
-
-    // Efekty
+    // Effects
     FA.updateEffects(dt);
     FA.updateFloats(dt);
 
@@ -97,25 +88,21 @@
     // Survival time
     state.survivalTime += dt / 1000;
 
-    // Respawn wrogow
-    if (state.enemies.length === 0) {
-      var count = Math.min(1 + Math.floor(state.kills / 3), 5);
-      for (var s = 0; s < count; s++) {
-        Ship.spawnEnemy(state);
-      }
-      if (state.kills >= 5 && state.partsCollected >= 3) {
-        Ship.showNarrative('ship_growing');
-      }
-      if (state.enemies.length >= 4) {
-        Ship.showNarrative('overwhelmed');
+    // Wave spawning — when all asteroids are destroyed
+    if (state.asteroids.length === 0) {
+      state.waveTimer += dt;
+      if (state.waveTimer >= cfg.waveDelay) {
+        state.waveTimer = 0;
+        Ship.showNarrative('wave_clear');
+        Ship.spawnWave(state);
       }
     }
 
-    // Connectivity check — odczep niepolaczone czesci
+    // Connectivity check
     if (state.ship) {
       for (var c = state.ship.parts.length - 1; c >= 0; c--) {
         if (state.ship.parts[c].type !== 'core' && !Physics.isConnected(state.ship.parts, c)) {
-          Ship.detach(state.ship, c, state);
+          state.ship.parts.splice(c, 1);
         }
       }
     }

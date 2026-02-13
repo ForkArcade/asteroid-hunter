@@ -1,5 +1,5 @@
-// Space Combat — Data
-// Definicje: konfiguracja, typy czesci, uklady statkow, dzwieki, narracja
+// Asteroid Hunter — Data
+// Config, part types, ship layouts, asteroid types, sounds, narrative
 (function() {
   'use strict';
   var FA = window.FA;
@@ -10,100 +10,107 @@
     canvasHeight: 800,
     gridSize: 30,
     partProximity: 40,
-    bulletSpeed: 10,
-    bulletLife: 100,
-    shootCooldown: 150,
-    thrustBase: 0.4,
+    bulletSpeed: 12,
+    bulletLife: 60,
+    shootCooldown: 120,
+    thrustBase: 0.5,
     turboMultiplier: 1.8,
-    friction: 0.98,
-    angularFriction: 0.9,
-    enemySpawnDistance: 500,
-    floatingPartLife: 900,
-    pickupRadius: 40
+    friction: 0.99,
+    angularFriction: 0.92,
+    floatingPartLife: 600,
+    pickupRadius: 40,
+    waveDelay: 3000,
+    asteroidBaseSpeed: 1.5
   });
 
   FA.register('config', 'colors', {
-    bg: '#001122',
-    gridLine: '#112244',
-    playerCore: '#f44', playerEngine: '#4f4', playerGun: '#44f',
-    enemyCore: '#f84', enemyEngine: '#8f4', enemyGun: '#48f',
-    cargo: '#ee4', disconnected: '#555',
-    bulletFriendly: '#0ff', bulletEnemy: '#f44',
+    bg: '#0a0a1a',
+    gridLine: '#111133',
+    playerCore: '#0cf', playerEngine: '#4f4', playerGun: '#f80',
+    asteroid: '#888', asteroidMedium: '#999', asteroidSmall: '#aaa',
+    bulletFriendly: '#ff0',
     text: '#fff', dim: '#777',
     narrative: '#c8b4ff'
   });
 
   FA.register('config', 'scoring', {
-    killMultiplier: 100,
-    partCollectedMultiplier: 25,
-    damageMultiplier: 2,
-    survivalPerSecond: 1
+    asteroidLarge: 50,
+    asteroidMedium: 100,
+    asteroidSmall: 150,
+    survivalPerSecond: 1,
+    waveBonus: 200
   });
 
-  // === TYPY CZESCI ===
-  FA.register('partTypes', 'core',   { name: 'Rdzen',    mass: 10, maxHp: 8, char: 'O' });
-  FA.register('partTypes', 'engine', { name: 'Silnik',   mass: 5,  maxHp: 3, char: 'E' });
-  FA.register('partTypes', 'gun',    { name: 'Dzialo',   mass: 5,  maxHp: 2, char: 'G' });
-  FA.register('partTypes', 'cargo',  { name: 'Ladownia', mass: 5,  maxHp: 2, char: 'C' });
+  // === PART TYPES ===
+  FA.register('partTypes', 'core',   { name: 'Core',   mass: 10, maxHp: 8, char: 'O' });
+  FA.register('partTypes', 'engine', { name: 'Engine', mass: 5,  maxHp: 3, char: 'E' });
+  FA.register('partTypes', 'gun',    { name: 'Gun',    mass: 5,  maxHp: 2, char: 'G' });
 
-  // === UKLADY STATKOW ===
+  // === SHIP LAYOUTS ===
   FA.register('shipLayouts', 'player_default', {
     parts: [
       { x: 0, y: 0, type: 'core' },
-      { x: 0, y: 30, type: 'engine' },
       { x: -30, y: 30, type: 'engine' },
       { x: 30, y: 30, type: 'engine' },
-      { x: 0, y: -30, type: 'gun' },
-      { x: -30, y: -30, type: 'gun' },
-      { x: 30, y: -30, type: 'gun' }
+      { x: 0, y: -30, type: 'gun' }
     ]
   });
 
-  FA.register('shipLayouts', 'enemy_fighter', {
-    parts: [
-      { x: 0, y: 0, type: 'core' },
-      { x: 0, y: 30, type: 'engine' },
-      { x: -30, y: 0, type: 'engine' },
-      { x: 30, y: 0, type: 'engine' },
-      { x: 0, y: -30, type: 'gun' },
-      { x: -30, y: -30, type: 'gun' },
-      { x: 30, y: -30, type: 'gun' }
-    ]
-  });
+  // === ASTEROID TYPES ===
+  FA.register('asteroidTypes', 'large',  { hp: 3, radius: 40, speed: 1.0, score: 50,  splits: 'medium', splitCount: 2 });
+  FA.register('asteroidTypes', 'medium', { hp: 2, radius: 25, speed: 1.5, score: 100, splits: 'small',  splitCount: 2 });
+  FA.register('asteroidTypes', 'small',  { hp: 1, radius: 14, speed: 2.0, score: 150, splits: null,     splitCount: 0 });
 
-  FA.register('shipLayouts', 'enemy_heavy', {
-    parts: [
-      { x: 0, y: 0, type: 'core' },
-      { x: 0, y: -60, type: 'gun' },
-      { x: -30, y: -30, type: 'cargo' },
-      { x: 0, y: -30, type: 'cargo' },
-      { x: 30, y: -30, type: 'cargo' },
-      { x: -60, y: 0, type: 'engine' },
-      { x: 60, y: 0, type: 'engine' },
-      { x: 0, y: 30, type: 'cargo' }
-    ]
-  });
-
-  // TODO: wiecej ukladow wrogow
-
-  // === DZWIEKI ===
+  // === SOUNDS ===
   FA.defineSound('shoot', function(actx, dest) {
     var osc = actx.createOscillator();
     osc.type = 'square';
-    osc.frequency.setValueAtTime(800, actx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(200, actx.currentTime + 0.05);
-    osc.connect(dest);
+    osc.frequency.setValueAtTime(600, actx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(100, actx.currentTime + 0.06);
+    var g = actx.createGain();
+    g.gain.setValueAtTime(0.3, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.06);
+    osc.connect(g);
+    g.connect(dest);
     osc.start();
-    osc.stop(actx.currentTime + 0.05);
+    osc.stop(actx.currentTime + 0.06);
   });
 
   FA.defineSound('explosion', function(actx, dest) {
     var osc = actx.createOscillator();
     osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(150, actx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(20, actx.currentTime + 0.3);
+    osc.frequency.setValueAtTime(120, actx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(20, actx.currentTime + 0.4);
     var g = actx.createGain();
-    g.gain.setValueAtTime(0.8, actx.currentTime);
+    g.gain.setValueAtTime(0.6, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.4);
+    osc.connect(g);
+    g.connect(dest);
+    osc.start();
+    osc.stop(actx.currentTime + 0.4);
+  });
+
+  FA.defineSound('asteroidBreak', function(actx, dest) {
+    var osc = actx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(300, actx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(50, actx.currentTime + 0.15);
+    var g = actx.createGain();
+    g.gain.setValueAtTime(0.4, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.15);
+    osc.connect(g);
+    g.connect(dest);
+    osc.start();
+    osc.stop(actx.currentTime + 0.15);
+  });
+
+  FA.defineSound('waveStart', function(actx, dest) {
+    var osc = actx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(400, actx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(800, actx.currentTime + 0.2);
+    var g = actx.createGain();
+    g.gain.setValueAtTime(0.3, actx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.3);
     osc.connect(g);
     g.connect(dest);
@@ -111,66 +118,51 @@
     osc.stop(actx.currentTime + 0.3);
   });
 
-  FA.defineSound('thrustLoop', function(actx, dest) {
-    var osc = actx.createOscillator();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(60, actx.currentTime);
-    var g = actx.createGain();
-    g.gain.setValueAtTime(0.15, actx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.08);
-    osc.connect(g);
-    g.connect(dest);
-    osc.start();
-    osc.stop(actx.currentTime + 0.08);
-  });
-
-  // === NARRACJA ===
+  // === NARRATIVE ===
   FA.register('config', 'narrative', {
     startNode: 'launch',
-    variables: { kills: 0, parts_collected: 0, ship_size: 7 },
+    variables: { asteroids_destroyed: 0, waves_survived: 0 },
     graph: {
       nodes: [
-        { id: 'launch', label: 'Start misji', type: 'scene' },
-        { id: 'first_kill', label: 'Pierwszy fraг', type: 'scene' },
-        { id: 'ship_growing', label: 'Statek rosnie', type: 'scene' },
-        { id: 'overwhelmed', label: 'Przewaga wroga', type: 'scene' },
-        { id: 'destroyed', label: 'Zniszczony', type: 'scene' }
+        { id: 'launch', label: 'Launch', type: 'scene' },
+        { id: 'first_kill', label: 'First asteroid', type: 'scene' },
+        { id: 'wave_clear', label: 'Wave cleared', type: 'scene' },
+        { id: 'getting_intense', label: 'Getting intense', type: 'scene' },
+        { id: 'destroyed', label: 'Destroyed', type: 'scene' }
       ],
       edges: [
         { from: 'launch', to: 'first_kill' },
-        { from: 'first_kill', to: 'ship_growing' },
-        { from: 'ship_growing', to: 'overwhelmed' },
-        { from: 'overwhelmed', to: 'destroyed' },
+        { from: 'first_kill', to: 'wave_clear' },
+        { from: 'wave_clear', to: 'getting_intense' },
+        { from: 'getting_intense', to: 'destroyed' },
         { from: 'launch', to: 'destroyed' }
       ]
     }
   });
 
   FA.register('narrativeText', 'launch', {
-    text: 'Silniki odpalone. Pusta przestrzen czeka.',
+    text: 'Engines online. Asteroid field detected ahead.',
     color: '#c8b4ff'
   });
 
   FA.register('narrativeText', 'first_kill', {
-    text: 'Pierwszy wrog zniszczony. Zbierz jego czesci.',
+    text: 'First asteroid shattered. Stay sharp — more incoming.',
     color: '#c8b4ff'
   });
 
-  FA.register('narrativeText', 'ship_growing', {
-    text: 'Statek rosnie. Wiecej silnikow, wiecej ognia.',
-    color: '#c8b4ff'
+  FA.register('narrativeText', 'wave_clear', {
+    text: 'Wave cleared! Brief calm before the next storm.',
+    color: '#4f4'
   });
 
-  FA.register('narrativeText', 'overwhelmed', {
-    text: 'Za duzo wrogow. Trzymaj sie.',
+  FA.register('narrativeText', 'getting_intense', {
+    text: 'Density increasing. Watch your hull integrity.',
     color: '#f88'
   });
 
   FA.register('narrativeText', 'destroyed', {
-    text: 'Rdzen zniszczony. Koniec podrozy.',
+    text: 'Hull breach critical. Ship lost.',
     color: '#f44'
   });
-
-  // TODO: wiecej wezlow narracji
 
 })();
