@@ -9,7 +9,7 @@
     canvasWidth: 1000,
     canvasHeight: 800,
     gridSize: 30,
-    partProximity: 40,
+    partProximity: 45,
     bulletSpeed: 12,
     bulletLife: 60,
     shootCooldown: 120,
