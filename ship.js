@@ -1,5 +1,5 @@
 // Asteroid Hunter — Game Logic
-// Ship, station, asteroids, bullets, waves, arena, repairs, screens
+// Ship, station, asteroids, bullets, waves, arena, gravity, fuel, repairs, screens
 (function() {
   'use strict';
   var FA = window.FA;
@@ -8,7 +8,7 @@
   function showNarrative(nodeId) {
     var textDef = FA.lookup('narrativeText', nodeId);
     if (textDef) {
-      FA.setState('narrativeMessage', { text: textDef.text, color: textDef.color, life: 4000 });
+      FA.setState('narrativeMessage', { text: textDef.text, color: textDef.color, life: 5000 });
     }
     FA.narrative.transition(nodeId);
   }
@@ -34,7 +34,8 @@
       angle: 0, angVel: 0,
       parts: parts,
       activeEngines: new Set(),
-      lastShot: 0
+      lastShot: 0,
+      fuel: cfg.maxFuel
     };
   }
 
@@ -48,7 +49,8 @@
       radius: cfg.stationRadius,
       lastHit: 0,
       warned50: false,
-      warned30: false
+      warned30: false,
+      rotation: 0
     };
   }
 
@@ -91,6 +93,72 @@
     }
   }
 
+  // === GRAVITY ===
+
+  function applyGravity(obj, station) {
+    var dx = station.x - obj.x;
+    var dy = station.y - obj.y;
+    var dist = Math.hypot(dx, dy);
+    if (dist < cfg.gravityMinDist || dist > cfg.gravityMaxDist) return;
+    var force = cfg.stationGravity / (dist * dist);
+    var nx = dx / dist;
+    var ny = dy / dist;
+    obj.vx += nx * force;
+    obj.vy += ny * force;
+  }
+
+  function updateGravity(state) {
+    if (!state.station || state.station.hp <= 0) return;
+
+    // Gravity on player
+    if (state.ship) {
+      applyGravity(state.ship, state.station);
+
+      // Gravity narrative — once, when player first enters field
+      var d = Math.hypot(state.ship.x - state.station.x, state.ship.y - state.station.y);
+      if (d < cfg.gravityMaxDist && d > cfg.stationRepairRange && !state.gravityNarrShown) {
+        state.gravityNarrShown = true;
+      }
+    }
+
+    // Gravity on asteroids
+    for (var i = 0; i < state.asteroids.length; i++) {
+      applyGravity(state.asteroids[i], state.station);
+    }
+  }
+
+  // === FUEL ===
+
+  function consumeFuel(ship, amount) {
+    ship.fuel = Math.max(0, ship.fuel - amount);
+  }
+
+  function updateFuelWarnings(state) {
+    if (!state.ship) return;
+    var ratio = state.ship.fuel / cfg.maxFuel;
+
+    if (ratio <= 0 && !state.fuelEmptyShown) {
+      state.fuelEmptyShown = true;
+      showNarrative('fuel_empty');
+      FA.playSound('fuelWarn');
+    } else if (ratio <= 0.1 && !state.fuelCriticalShown) {
+      state.fuelCriticalShown = true;
+      showNarrative('fuel_critical');
+      FA.playSound('fuelWarn');
+    } else if (ratio <= 0.3 && !state.fuelLowShown) {
+      state.fuelLowShown = true;
+      showNarrative('fuel_low');
+      FA.playSound('fuelWarn');
+    }
+
+    // Reset warnings when refueled above thresholds
+    if (ratio > 0.35) state.fuelLowShown = false;
+    if (ratio > 0.15) state.fuelCriticalShown = false;
+    if (ratio > 0.05) state.fuelEmptyShown = false;
+
+    FA.narrative.setVar('fuel', Math.floor(state.ship.fuel), 'Fuel update');
+  }
+
   // === REPAIRS ===
 
   function updateRepairs(state, dt) {
@@ -113,6 +181,15 @@
     }
 
     var dtSec = dt / 1000;
+
+    // Refuel
+    if (state.ship.fuel < cfg.maxFuel) {
+      var oldFuel = state.ship.fuel;
+      state.ship.fuel = Math.min(cfg.maxFuel, state.ship.fuel + cfg.fuelRefuelRate * dtSec);
+      if (oldFuel < cfg.maxFuel * 0.5 && state.ship.fuel >= cfg.maxFuel * 0.5 && !state.refuelNarrShown) {
+        state.refuelNarrShown = true;
+      }
+    }
 
     // Repair ship parts
     state.repairAccum = (state.repairAccum || 0) + cfg.repairRate * dtSec;
@@ -139,7 +216,6 @@
       state.stationRepairAccum -= 1;
       state.station.hp++;
       FA.addFloat(state.station.x, state.station.y - 30, '+1', '#4f8', 600);
-      // Reset warnings if HP recovers
       if (state.station.hp / state.station.maxHp > 0.5) state.station.warned50 = false;
       if (state.station.hp / state.station.maxHp > 0.3) state.station.warned30 = false;
     }
@@ -153,12 +229,10 @@
     var d = Math.hypot(state.ship.x, state.ship.y);
     var warningDist = cfg.arenaRadius * cfg.arenaWarning;
 
-    // Update boundary warning level (0 = safe, 0..1 = danger zone)
     if (d > warningDist) {
       var danger = (d - warningDist) / (cfg.arenaRadius - warningDist);
       state.boundaryWarning = Math.min(1, danger);
 
-      // Show warning narrative once per crossing
       if (!state.boundaryWarnShown) {
         state.boundaryWarnShown = true;
         showNarrative('boundary_warning');
@@ -169,10 +243,8 @@
       state.boundaryWarnShown = false;
     }
 
-    // Kill player if outside arena
     if (d > cfg.arenaRadius) {
       state.deathReason = 'boundary';
-      // Destroy all parts
       state.ship.parts = [];
       FA.emit('entity:killed', { entity: state.ship });
       gameOver(state);
@@ -240,13 +312,11 @@
   }
 
   function spawnAsteroid(state, type) {
-    // Spawn at arena edge, aimed toward center/station area
     var spawnAngle = Math.random() * Math.PI * 2;
     var x = Math.cos(spawnAngle) * cfg.arenaRadius;
     var y = Math.sin(spawnAngle) * cfg.arenaRadius;
     var asteroid = createAsteroid(type || 'large', x, y);
     if (asteroid) {
-      // Aim toward center with some spread
       var aimAngle = Math.atan2(-y, -x) + (Math.random() - 0.5) * 0.8;
       var def = FA.lookup('asteroidTypes', asteroid.type);
       var speed = def.speed * cfg.asteroidBaseSpeed * (0.7 + Math.random() * 0.6);
@@ -266,7 +336,6 @@
     if (state.wave > 1) {
       var scoring = FA.lookup('config', 'scoring');
       var bonus = scoring.waveBonus;
-      // Station defense bonus
       if (state.station && state.station.hp > state.station.maxHp * 0.5) {
         bonus += 50;
       }
@@ -274,7 +343,9 @@
       FA.addFloat(state.ship.x, state.ship.y - 50, '+' + bonus + ' wave bonus', '#ff0', 1500);
     }
     FA.narrative.setVar('waves_survived', state.wave, 'Wave ' + state.wave);
-    if (state.wave >= 5) {
+    if (state.wave >= 10) {
+      showNarrative('wave_10');
+    } else if (state.wave >= 5) {
       showNarrative('wave_5');
     } else if (state.wave >= 3) {
       showNarrative('getting_intense');
@@ -410,7 +481,12 @@
       repairing: false,
       repairAccum: 0,
       stationRepairAccum: 0,
-      deathReason: null
+      deathReason: null,
+      fuelLowShown: false,
+      fuelCriticalShown: false,
+      fuelEmptyShown: false,
+      refuelNarrShown: false,
+      gravityNarrShown: false
     });
     var narCfg = FA.lookup('config', 'narrative');
     if (narCfg) FA.narrative.init(narCfg);
@@ -449,6 +525,9 @@
     checkAsteroidStationCollision: checkAsteroidStationCollision,
     checkArenaBoundary: checkArenaBoundary,
     updateRepairs: updateRepairs,
+    updateGravity: updateGravity,
+    updateFuelWarnings: updateFuelWarnings,
+    consumeFuel: consumeFuel,
     spawnWave: spawnWave,
     startScreen: startScreen,
     beginGame: beginGame,

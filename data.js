@@ -21,13 +21,21 @@
     pickupRadius: 40,
     waveDelay: 3000,
     asteroidBaseSpeed: 1.5,
-    arenaRadius: 1200,
+    arenaRadius: 1800,
     arenaWarning: 0.8,
-    stationHp: 20,
-    stationRadius: 50,
-    stationRepairRange: 120,
+    stationHp: 25,
+    stationRadius: 60,
+    stationRepairRange: 140,
     repairRate: 0.5,
-    stationRepairRate: 0.3
+    stationRepairRate: 0.3,
+    stationGravity: 800,
+    gravityMaxDist: 600,
+    gravityMinDist: 30,
+    maxFuel: 100,
+    fuelConsumption: 4,
+    turboFuelMultiplier: 2.5,
+    fuelRefuelRate: 15,
+    stationRotationSpeed: 0.0003
   });
 
   FA.register('config', 'colors', {
@@ -170,10 +178,25 @@
     osc.stop(actx.currentTime + 0.25);
   });
 
+  FA.defineSound('fuelWarn', function(actx, dest) {
+    var osc = actx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(120, actx.currentTime);
+    osc.frequency.setValueAtTime(90, actx.currentTime + 0.1);
+    osc.frequency.setValueAtTime(120, actx.currentTime + 0.2);
+    var g = actx.createGain();
+    g.gain.setValueAtTime(0.2, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.3);
+    osc.connect(g);
+    g.connect(dest);
+    osc.start();
+    osc.stop(actx.currentTime + 0.3);
+  });
+
   // === NARRATIVE ===
   FA.register('config', 'narrative', {
     startNode: 'launch',
-    variables: { asteroids_destroyed: 0, waves_survived: 0, station_hp: 20 },
+    variables: { asteroids_destroyed: 0, waves_survived: 0, station_hp: 25, fuel: 100 },
     graph: {
       nodes: [
         { id: 'launch', label: 'Launch', type: 'scene' },
@@ -186,6 +209,12 @@
         { id: 'station_destroyed', label: 'Station lost', type: 'scene' },
         { id: 'boundary_warning', label: 'Boundary', type: 'scene' },
         { id: 'repair_docking', label: 'Repair dock', type: 'scene' },
+        { id: 'fuel_low', label: 'Fuel low', type: 'scene' },
+        { id: 'fuel_critical', label: 'Fuel critical', type: 'scene' },
+        { id: 'fuel_empty', label: 'Fuel empty', type: 'scene' },
+        { id: 'refueling', label: 'Refueling', type: 'scene' },
+        { id: 'gravity_warning', label: 'Gravity pull', type: 'scene' },
+        { id: 'wave_10', label: 'Hell wave', type: 'scene' },
         { id: 'player_destroyed', label: 'Player destroyed', type: 'scene' }
       ],
       edges: [
@@ -193,68 +222,104 @@
         { from: 'first_kill', to: 'wave_clear' },
         { from: 'wave_clear', to: 'getting_intense' },
         { from: 'getting_intense', to: 'wave_5' },
+        { from: 'wave_5', to: 'wave_10' },
         { from: 'launch', to: 'station_damaged' },
         { from: 'station_damaged', to: 'station_critical' },
         { from: 'station_critical', to: 'station_destroyed' },
         { from: 'launch', to: 'boundary_warning' },
         { from: 'launch', to: 'repair_docking' },
+        { from: 'launch', to: 'fuel_low' },
+        { from: 'fuel_low', to: 'fuel_critical' },
+        { from: 'fuel_critical', to: 'fuel_empty' },
+        { from: 'launch', to: 'refueling' },
+        { from: 'launch', to: 'gravity_warning' },
         { from: 'launch', to: 'player_destroyed' }
       ]
     }
   });
 
   FA.register('narrativeText', 'launch', {
-    text: 'Station defense online. Protect the orbital station at all costs.',
+    text: '[ COMMS ] Station Coriolis-7 online. Gravitational anchor active. Defend at all costs, pilot.',
     color: '#c8b4ff'
   });
 
   FA.register('narrativeText', 'first_kill', {
-    text: 'First asteroid neutralized. Keep the perimeter clear.',
+    text: '[ COMMS ] First contact neutralized. The station\'s gravity well is pulling debris inward — stay sharp.',
     color: '#c8b4ff'
   });
 
   FA.register('narrativeText', 'wave_clear', {
-    text: 'Wave cleared! Return to station for repairs.',
+    text: '[ COMMS ] Sector clear. Dock with the station to refuel and repair before the next wave.',
     color: '#4f4'
   });
 
   FA.register('narrativeText', 'getting_intense', {
-    text: 'Asteroid density increasing. Stay close to the station!',
+    text: '[ WARNING ] Asteroid density rising. Station gravity pulling them in faster. Intercept early!',
     color: '#f88'
   });
 
   FA.register('narrativeText', 'wave_5', {
-    text: 'Deep field breach. Asteroid swarm overwhelming — hold the line!',
+    text: '[ ALERT ] Deep field breach! Swarm density critical — station cannot survive this alone!',
+    color: '#f44'
+  });
+
+  FA.register('narrativeText', 'wave_10', {
+    text: '[ MAYDAY ] Uncharted density level! This is beyond anything we\'ve seen. Hold the line, pilot!',
     color: '#f44'
   });
 
   FA.register('narrativeText', 'station_damaged', {
-    text: 'STATION HIT! Asteroids breaking through — defend it!',
+    text: '[ STATION ] Impact detected! Asteroids breaking through defense perimeter!',
     color: '#f80'
   });
 
   FA.register('narrativeText', 'station_critical', {
-    text: 'STATION CRITICAL! Hull integrity below 30%!',
+    text: '[ STATION ] HULL CRITICAL! Structural integrity below 30%! We\'re losing her!',
     color: '#f44'
   });
 
   FA.register('narrativeText', 'station_destroyed', {
-    text: 'Orbital station destroyed. Mission failed.',
+    text: '[ STATION ] Core breach. Coriolis-7 lost. All hands... mission failed.',
     color: '#f44'
   });
 
   FA.register('narrativeText', 'boundary_warning', {
-    text: 'WARNING: Leaving safe zone! Return to station immediately!',
+    text: '[ NAV ] You are leaving the operational zone! Return to station immediately!',
     color: '#ff4'
   });
 
   FA.register('narrativeText', 'repair_docking', {
-    text: 'Repair field active. Hull restoring...',
+    text: '[ STATION ] Repair field engaged. Refueling in progress. Hull restoring...',
     color: '#4f8'
   });
 
+  FA.register('narrativeText', 'fuel_low', {
+    text: '[ ENGINE ] Fuel reserves at 30%. Recommend returning to station for refueling.',
+    color: '#f80'
+  });
+
+  FA.register('narrativeText', 'fuel_critical', {
+    text: '[ ENGINE ] FUEL CRITICAL! 10% remaining! Dock immediately or you\'ll be adrift!',
+    color: '#f44'
+  });
+
+  FA.register('narrativeText', 'fuel_empty', {
+    text: '[ ENGINE ] Fuel depleted. Engines offline. Drifting... station gravity is your only hope.',
+    color: '#f44'
+  });
+
+  FA.register('narrativeText', 'refueling', {
+    text: '[ ENGINE ] Fuel transfer active. Tanks replenishing.',
+    color: '#4f8'
+  });
+
+  FA.register('narrativeText', 'gravity_warning', {
+    text: '[ NAV ] Station gravitational pull detected. Use it to your advantage, pilot.',
+    color: '#88f'
+  });
+
   FA.register('narrativeText', 'player_destroyed', {
-    text: 'Ship destroyed. Station left undefended.',
+    text: '[ COMMS ] We\'ve lost the pilot. Station Coriolis-7 is now undefended. God help them.',
     color: '#f44'
   });
 
