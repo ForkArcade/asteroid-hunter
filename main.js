@@ -71,10 +71,22 @@
       FA.camera.y = state.ship.y - cfg.canvasHeight / 2;
     }
 
+    // Arena boundary check
+    Ship.checkArenaBoundary(state);
+    if (state.screen === 'death') return;
+
     // Asteroids
     Ship.updateAsteroids(state);
     Ship.updateBullets(state);
     Ship.checkAsteroidCollision(state);
+    if (state.screen === 'death') return;
+
+    // Station collision
+    Ship.checkAsteroidStationCollision(state);
+    if (state.screen === 'death') return;
+
+    // Repairs
+    Ship.updateRepairs(state, dt);
 
     // Effects
     FA.updateEffects(dt);

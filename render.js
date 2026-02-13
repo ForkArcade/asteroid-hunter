@@ -1,5 +1,5 @@
 // Asteroid Hunter — Rendering
-// Layers: start/death screen, grid, asteroids, ship, bullets, effects, narrative, HUD
+// Layers: start/death screen, grid, arena, station, asteroids, ship, bullets, effects, warnings, narrative, HUD
 (function() {
   'use strict';
   var FA = window.FA;
@@ -13,11 +13,12 @@
     FA.addLayer('startScreen', function() {
       var state = FA.getState();
       if (state.screen !== 'start') return;
-      FA.draw.text('ASTEROID HUNTER', cfg.canvasWidth / 2, 200, { color: '#ff0', size: 48, bold: true, align: 'center' });
-      FA.draw.text('Survive the asteroid field. Destroy everything.', cfg.canvasWidth / 2, 270, { color: '#888', size: 16, align: 'center' });
-      FA.draw.text('WASD — fly | SHIFT — turbo', cfg.canvasWidth / 2, 340, { color: '#aaa', size: 14, align: 'center' });
-      FA.draw.text('SPACE — shoot | Dodge and destroy asteroids', cfg.canvasWidth / 2, 370, { color: '#aaa', size: 14, align: 'center' });
-      FA.draw.text('[SPACE] to launch', cfg.canvasWidth / 2, 450, { color: '#fff', size: 20, bold: true, align: 'center' });
+      FA.draw.text('ASTEROID HUNTER', cfg.canvasWidth / 2, 160, { color: '#ff0', size: 48, bold: true, align: 'center' });
+      FA.draw.text('Defend the orbital station from asteroid waves.', cfg.canvasWidth / 2, 230, { color: '#aaa', size: 16, align: 'center' });
+      FA.draw.text('Fly near the station to repair your ship and the station.', cfg.canvasWidth / 2, 260, { color: '#4f8', size: 14, align: 'center' });
+      FA.draw.text('Stay inside the safe zone — leaving means death!', cfg.canvasWidth / 2, 290, { color: '#f88', size: 14, align: 'center' });
+      FA.draw.text('WASD — fly | SHIFT — turbo | SPACE — shoot', cfg.canvasWidth / 2, 350, { color: '#aaa', size: 14, align: 'center' });
+      FA.draw.text('[SPACE] to launch', cfg.canvasWidth / 2, 430, { color: '#fff', size: 20, bold: true, align: 'center' });
     }, 0);
 
     // === DEATH SCREEN ===
@@ -27,9 +28,32 @@
       FA.draw.withAlpha(0.7, function() {
         FA.draw.rect(0, 0, cfg.canvasWidth, cfg.canvasHeight, '#000');
       });
-      FA.draw.text('DESTROYED', cfg.canvasWidth / 2, 200, { color: '#f44', size: 48, bold: true, align: 'center' });
-      FA.draw.text('Score: ' + state.score, cfg.canvasWidth / 2, 280, { color: '#fff', size: 24, align: 'center' });
-      FA.draw.text('Asteroids: ' + state.asteroidsDestroyed + ' | Waves: ' + state.wave + ' | Time: ' + Math.floor(state.survivalTime) + 's', cfg.canvasWidth / 2, 330, { color: '#aaa', size: 14, align: 'center' });
+
+      var reason = state.deathReason;
+      var title = 'DESTROYED';
+      var subtitle = '';
+      if (reason === 'station') {
+        title = 'STATION LOST';
+        subtitle = 'The orbital station was destroyed.';
+      } else if (reason === 'boundary') {
+        title = 'LEFT SAFE ZONE';
+        subtitle = 'You drifted too far from the station.';
+      } else {
+        subtitle = 'Your ship was destroyed.';
+      }
+
+      FA.draw.text(title, cfg.canvasWidth / 2, 180, { color: '#f44', size: 48, bold: true, align: 'center' });
+      FA.draw.text(subtitle, cfg.canvasWidth / 2, 230, { color: '#f88', size: 16, align: 'center' });
+      FA.draw.text('Score: ' + state.score, cfg.canvasWidth / 2, 290, { color: '#fff', size: 24, align: 'center' });
+
+      var stats = 'Asteroids: ' + state.asteroidsDestroyed +
+                  ' | Waves: ' + state.wave +
+                  ' | Time: ' + Math.floor(state.survivalTime) + 's';
+      if (state.station) {
+        stats += ' | Station HP: ' + state.station.hp + '/' + state.station.maxHp;
+      }
+      FA.draw.text(stats, cfg.canvasWidth / 2, 340, { color: '#aaa', size: 14, align: 'center' });
+
       if (state.narrativeMessage) {
         FA.draw.text(state.narrativeMessage.text, cfg.canvasWidth / 2, 390, { color: state.narrativeMessage.color, size: 16, align: 'center' });
       }
@@ -57,6 +81,46 @@
       ctx.stroke();
     }, 1);
 
+    // === ARENA BOUNDARY ===
+    FA.addLayer('arena', function() {
+      var state = FA.getState();
+      if (state.screen !== 'playing') return;
+
+      var cx = -FA.camera.x;
+      var cy = -FA.camera.y;
+      var r = cfg.arenaRadius;
+
+      // Main boundary circle
+      ctx.save();
+      ctx.setLineDash([15, 10]);
+      var warn = state.boundaryWarning || 0;
+      if (warn > 0) {
+        // Pulsing red when in danger zone
+        var pulse = 0.4 + Math.sin(Date.now() * 0.008) * 0.3;
+        ctx.strokeStyle = 'rgba(255,' + Math.floor(60 * (1 - warn)) + ',60,' + (0.3 + warn * pulse) + ')';
+        ctx.lineWidth = 2 + warn * 2;
+      } else {
+        ctx.strokeStyle = 'rgba(34,68,170,0.3)';
+        ctx.lineWidth = 1.5;
+      }
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Warning zone ring (inner)
+      var warningR = r * cfg.arenaWarning;
+      ctx.strokeStyle = 'rgba(34,68,170,0.12)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 15]);
+      ctx.beginPath();
+      ctx.arc(cx, cy, warningR, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.restore();
+    }, 2);
+
     // === ASTEROIDS ===
     FA.addLayer('asteroids', function() {
       var state = FA.getState();
@@ -71,7 +135,6 @@
         ctx.translate(sx, sy);
         ctx.rotate(a.angle);
 
-        // Draw polygon
         var color = a.type === 'large' ? '#777' : a.type === 'medium' ? '#999' : '#bbb';
         ctx.fillStyle = color;
         ctx.strokeStyle = '#ddd';
@@ -88,6 +151,115 @@
         ctx.restore();
       }
     }, 3);
+
+    // === STATION ===
+    FA.addLayer('station', function() {
+      var state = FA.getState();
+      if (state.screen !== 'playing' || !state.station) return;
+
+      var st = state.station;
+      var sx = st.x - FA.camera.x;
+      var sy = st.y - FA.camera.y;
+      if (sx < -100 || sx > cfg.canvasWidth + 100 || sy < -100 || sy > cfg.canvasHeight + 100) return;
+
+      var ratio = st.hp / st.maxHp;
+      var hitFlash = (Date.now() - st.lastHit) < 150;
+
+      ctx.save();
+      ctx.translate(sx, sy);
+
+      // Repair field glow (when player is in range)
+      if (state.repairing) {
+        var glowPulse = 0.08 + Math.sin(Date.now() * 0.004) * 0.04;
+        ctx.fillStyle = 'rgba(68,255,136,' + glowPulse + ')';
+        ctx.beginPath();
+        ctx.arc(0, 0, cfg.stationRepairRange, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Station body — octagon
+      var stColor;
+      if (hitFlash) {
+        stColor = '#fff';
+      } else if (ratio > 0.5) {
+        stColor = colors.station;
+      } else if (ratio > 0.3) {
+        stColor = colors.stationDamaged;
+      } else {
+        stColor = colors.stationCritical;
+      }
+
+      // Outer ring
+      ctx.strokeStyle = stColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, st.radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Inner octagon
+      ctx.fillStyle = stColor;
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath();
+      var innerR = st.radius * 0.7;
+      for (var i = 0; i < 8; i++) {
+        var ang = (i / 8) * Math.PI * 2 - Math.PI / 8;
+        var px = Math.cos(ang) * innerR;
+        var py = Math.sin(ang) * innerR;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // Octagon outline
+      ctx.strokeStyle = stColor;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (var i = 0; i < 8; i++) {
+        var ang = (i / 8) * Math.PI * 2 - Math.PI / 8;
+        var px = Math.cos(ang) * innerR;
+        var py = Math.sin(ang) * innerR;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+
+      // Center dot
+      ctx.fillStyle = stColor;
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Docking arms (4 lines)
+      ctx.strokeStyle = stColor;
+      ctx.lineWidth = 1;
+      for (var i = 0; i < 4; i++) {
+        var ang = (i / 4) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(ang) * innerR, Math.sin(ang) * innerR);
+        ctx.lineTo(Math.cos(ang) * st.radius, Math.sin(ang) * st.radius);
+        ctx.stroke();
+      }
+
+      // HP bar below station
+      var barW = 60, barH = 5;
+      var barX = -barW / 2, barY = st.radius + 10;
+      ctx.fillStyle = '#400';
+      ctx.fillRect(barX, barY, barW, barH);
+      var hpColor = ratio > 0.5 ? '#4cf' : ratio > 0.3 ? '#f80' : '#f44';
+      ctx.fillStyle = hpColor;
+      ctx.fillRect(barX, barY, barW * ratio, barH);
+      ctx.strokeStyle = '#666';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(barX, barY, barW, barH);
+
+      // Label
+      FA.draw.text('STATION', sx, sy + st.radius + 22, { color: '#888', size: 10, align: 'center' });
+
+      ctx.restore();
+    }, 4);
 
     // === SHIP ===
     FA.addLayer('ship', function() {
@@ -122,6 +294,67 @@
       FA.drawFloats();
     }, 15);
 
+    // === WARNINGS OVERLAY ===
+    FA.addLayer('warnings', function() {
+      var state = FA.getState();
+      if (state.screen !== 'playing') return;
+
+      var warn = state.boundaryWarning || 0;
+      if (warn > 0) {
+        // Red vignette on screen edges
+        var alpha = warn * (0.2 + Math.sin(Date.now() * 0.006) * 0.1);
+        var grad = ctx.createRadialGradient(
+          cfg.canvasWidth / 2, cfg.canvasHeight / 2, cfg.canvasWidth * 0.3,
+          cfg.canvasWidth / 2, cfg.canvasHeight / 2, cfg.canvasWidth * 0.6
+        );
+        grad.addColorStop(0, 'rgba(255,0,0,0)');
+        grad.addColorStop(1, 'rgba(255,0,0,' + alpha + ')');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, cfg.canvasWidth, cfg.canvasHeight);
+
+        // Warning text
+        if (warn > 0.3) {
+          var textAlpha = 0.5 + Math.sin(Date.now() * 0.01) * 0.5;
+          FA.draw.withAlpha(textAlpha, function() {
+            FA.draw.text('!! RETURN TO STATION !!', cfg.canvasWidth / 2, cfg.canvasHeight / 2 - 60,
+              { color: '#f44', size: 22, bold: true, align: 'center' });
+          });
+        }
+      }
+
+      // Station direction indicator (arrow pointing to station when off-screen)
+      if (state.ship && state.station) {
+        var stSx = state.station.x - FA.camera.x;
+        var stSy = state.station.y - FA.camera.y;
+        var margin = 60;
+        if (stSx < margin || stSx > cfg.canvasWidth - margin || stSy < margin || stSy > cfg.canvasHeight - margin) {
+          // Station is off-screen, draw arrow
+          var angle = Math.atan2(stSy - cfg.canvasHeight / 2, stSx - cfg.canvasWidth / 2);
+          var edgeX = cfg.canvasWidth / 2 + Math.cos(angle) * (cfg.canvasWidth / 2 - 40);
+          var edgeY = cfg.canvasHeight / 2 + Math.sin(angle) * (cfg.canvasHeight / 2 - 40);
+          edgeX = Math.max(30, Math.min(cfg.canvasWidth - 30, edgeX));
+          edgeY = Math.max(30, Math.min(cfg.canvasHeight - 60, edgeY));
+
+          var stDist = Math.hypot(state.ship.x - state.station.x, state.ship.y - state.station.y);
+          var arrowColor = stDist > cfg.arenaRadius * 0.6 ? '#f80' : '#4cf';
+
+          ctx.save();
+          ctx.translate(edgeX, edgeY);
+          ctx.rotate(angle);
+          ctx.fillStyle = arrowColor;
+          ctx.beginPath();
+          ctx.moveTo(10, 0);
+          ctx.lineTo(-6, -6);
+          ctx.lineTo(-6, 6);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+
+          FA.draw.text(Math.floor(stDist) + 'px', edgeX, edgeY + 14, { color: arrowColor, size: 10, align: 'center' });
+        }
+      }
+    }, 20);
+
     // === NARRATIVE ===
     FA.addLayer('narrative', function() {
       var state = FA.getState();
@@ -139,19 +372,43 @@
     FA.addLayer('hud', function() {
       var state = FA.getState();
       if (state.screen !== 'playing' || !state.ship) return;
+
       var y = cfg.canvasHeight - 30;
-      var coreHp = 0, coreMax = 0, parts = state.ship.parts.length;
+      FA.draw.rect(0, y - 5, cfg.canvasWidth, 35, 'rgba(0,0,0,0.6)');
+
+      // Ship hull
+      var coreHp = 0, coreMax = 0;
       for (var i = 0; i < state.ship.parts.length; i++) {
         var p = state.ship.parts[i];
         if (p.type === 'core') { coreHp += p.hp; coreMax += p.maxHp; }
       }
-      var info = 'Hull: ' + coreHp + '/' + coreMax +
-                 ' | Parts: ' + parts +
-                 ' | Wave: ' + state.wave +
-                 ' | Asteroids: ' + state.asteroids.length +
-                 ' | Score: ' + state.score;
-      FA.draw.rect(0, y - 5, cfg.canvasWidth, 35, 'rgba(0,0,0,0.5)');
-      FA.draw.text(info, 10, y, { color: colors.text, size: 14 });
+      var hullColor = coreHp > coreMax * 0.5 ? '#4cf' : coreHp > coreMax * 0.3 ? '#f80' : '#f44';
+      FA.draw.text('Hull: ' + coreHp + '/' + coreMax, 10, y, { color: hullColor, size: 13 });
+
+      // Station HP
+      if (state.station) {
+        var stRatio = state.station.hp / state.station.maxHp;
+        var stColor = stRatio > 0.5 ? '#4cf' : stRatio > 0.3 ? '#f80' : '#f44';
+        FA.draw.text('Station: ' + state.station.hp + '/' + state.station.maxHp, 140, y, { color: stColor, size: 13 });
+      }
+
+      // Wave & asteroids
+      FA.draw.text('Wave: ' + state.wave, 310, y, { color: '#aaa', size: 13 });
+      FA.draw.text('Asteroids: ' + state.asteroids.length, 400, y, { color: '#aaa', size: 13 });
+
+      // Repair indicator
+      if (state.repairing) {
+        var repPulse = 0.6 + Math.sin(Date.now() * 0.008) * 0.4;
+        FA.draw.withAlpha(repPulse, function() {
+          FA.draw.text('REPAIRING', 550, y, { color: '#4f8', size: 13, bold: true });
+        });
+      }
+
+      // Score
+      FA.draw.text('Score: ' + state.score, cfg.canvasWidth - 10, y, { color: '#ff0', size: 13, align: 'right' });
+
+      // Parts count
+      FA.draw.text('Parts: ' + state.ship.parts.length, 640, y, { color: '#888', size: 11 });
     }, 30);
   }
 

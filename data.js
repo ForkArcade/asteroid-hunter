@@ -20,7 +20,14 @@
     floatingPartLife: 600,
     pickupRadius: 40,
     waveDelay: 3000,
-    asteroidBaseSpeed: 1.5
+    asteroidBaseSpeed: 1.5,
+    arenaRadius: 1200,
+    arenaWarning: 0.8,
+    stationHp: 20,
+    stationRadius: 50,
+    stationRepairRange: 120,
+    repairRate: 0.5,
+    stationRepairRate: 0.3
   });
 
   FA.register('config', 'colors', {
@@ -29,6 +36,9 @@
     playerCore: '#0cf', playerEngine: '#4f4', playerGun: '#f80',
     asteroid: '#888', asteroidMedium: '#999', asteroidSmall: '#aaa',
     bulletFriendly: '#ff0',
+    station: '#4cf', stationDamaged: '#f80', stationCritical: '#f44',
+    arenaLine: '#2244aa', arenaWarn: '#ff4444',
+    repairGlow: '#4f8',
     text: '#fff', dim: '#777',
     narrative: '#c8b4ff'
   });
@@ -118,50 +128,133 @@
     osc.stop(actx.currentTime + 0.3);
   });
 
+  FA.defineSound('warning', function(actx, dest) {
+    var osc = actx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(80, actx.currentTime);
+    osc.frequency.linearRampToValueAtTime(60, actx.currentTime + 0.3);
+    var g = actx.createGain();
+    g.gain.setValueAtTime(0.25, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.3);
+    osc.connect(g);
+    g.connect(dest);
+    osc.start();
+    osc.stop(actx.currentTime + 0.3);
+  });
+
+  FA.defineSound('repair', function(actx, dest) {
+    var osc = actx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(300, actx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(600, actx.currentTime + 0.15);
+    var g = actx.createGain();
+    g.gain.setValueAtTime(0.15, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.2);
+    osc.connect(g);
+    g.connect(dest);
+    osc.start();
+    osc.stop(actx.currentTime + 0.2);
+  });
+
+  FA.defineSound('stationHit', function(actx, dest) {
+    var osc = actx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(200, actx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(40, actx.currentTime + 0.25);
+    var g = actx.createGain();
+    g.gain.setValueAtTime(0.4, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.25);
+    osc.connect(g);
+    g.connect(dest);
+    osc.start();
+    osc.stop(actx.currentTime + 0.25);
+  });
+
   // === NARRATIVE ===
   FA.register('config', 'narrative', {
     startNode: 'launch',
-    variables: { asteroids_destroyed: 0, waves_survived: 0 },
+    variables: { asteroids_destroyed: 0, waves_survived: 0, station_hp: 20 },
     graph: {
       nodes: [
         { id: 'launch', label: 'Launch', type: 'scene' },
         { id: 'first_kill', label: 'First asteroid', type: 'scene' },
         { id: 'wave_clear', label: 'Wave cleared', type: 'scene' },
         { id: 'getting_intense', label: 'Getting intense', type: 'scene' },
-        { id: 'destroyed', label: 'Destroyed', type: 'scene' }
+        { id: 'wave_5', label: 'Deep field', type: 'scene' },
+        { id: 'station_damaged', label: 'Station hit', type: 'scene' },
+        { id: 'station_critical', label: 'Station critical', type: 'scene' },
+        { id: 'station_destroyed', label: 'Station lost', type: 'scene' },
+        { id: 'boundary_warning', label: 'Boundary', type: 'scene' },
+        { id: 'repair_docking', label: 'Repair dock', type: 'scene' },
+        { id: 'player_destroyed', label: 'Player destroyed', type: 'scene' }
       ],
       edges: [
         { from: 'launch', to: 'first_kill' },
         { from: 'first_kill', to: 'wave_clear' },
         { from: 'wave_clear', to: 'getting_intense' },
-        { from: 'getting_intense', to: 'destroyed' },
-        { from: 'launch', to: 'destroyed' }
+        { from: 'getting_intense', to: 'wave_5' },
+        { from: 'launch', to: 'station_damaged' },
+        { from: 'station_damaged', to: 'station_critical' },
+        { from: 'station_critical', to: 'station_destroyed' },
+        { from: 'launch', to: 'boundary_warning' },
+        { from: 'launch', to: 'repair_docking' },
+        { from: 'launch', to: 'player_destroyed' }
       ]
     }
   });
 
   FA.register('narrativeText', 'launch', {
-    text: 'Engines online. Asteroid field detected ahead.',
+    text: 'Station defense online. Protect the orbital station at all costs.',
     color: '#c8b4ff'
   });
 
   FA.register('narrativeText', 'first_kill', {
-    text: 'First asteroid shattered. Stay sharp — more incoming.',
+    text: 'First asteroid neutralized. Keep the perimeter clear.',
     color: '#c8b4ff'
   });
 
   FA.register('narrativeText', 'wave_clear', {
-    text: 'Wave cleared! Brief calm before the next storm.',
+    text: 'Wave cleared! Return to station for repairs.',
     color: '#4f4'
   });
 
   FA.register('narrativeText', 'getting_intense', {
-    text: 'Density increasing. Watch your hull integrity.',
+    text: 'Asteroid density increasing. Stay close to the station!',
     color: '#f88'
   });
 
-  FA.register('narrativeText', 'destroyed', {
-    text: 'Hull breach critical. Ship lost.',
+  FA.register('narrativeText', 'wave_5', {
+    text: 'Deep field breach. Asteroid swarm overwhelming — hold the line!',
+    color: '#f44'
+  });
+
+  FA.register('narrativeText', 'station_damaged', {
+    text: 'STATION HIT! Asteroids breaking through — defend it!',
+    color: '#f80'
+  });
+
+  FA.register('narrativeText', 'station_critical', {
+    text: 'STATION CRITICAL! Hull integrity below 30%!',
+    color: '#f44'
+  });
+
+  FA.register('narrativeText', 'station_destroyed', {
+    text: 'Orbital station destroyed. Mission failed.',
+    color: '#f44'
+  });
+
+  FA.register('narrativeText', 'boundary_warning', {
+    text: 'WARNING: Leaving safe zone! Return to station immediately!',
+    color: '#ff4'
+  });
+
+  FA.register('narrativeText', 'repair_docking', {
+    text: 'Repair field active. Hull restoring...',
+    color: '#4f8'
+  });
+
+  FA.register('narrativeText', 'player_destroyed', {
+    text: 'Ship destroyed. Station left undefended.',
     color: '#f44'
   });
 
