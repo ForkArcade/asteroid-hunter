@@ -26,18 +26,18 @@
       FA.draw.text('SPACE — shoot', cfg.canvasWidth / 2, 400, { color: '#777', size: 12, align: 'center' });
 
       var pulse = 0.5 + Math.sin(Date.now() * 0.004) * 0.5;
-      FA.draw.withAlpha(pulse, function() {
-        FA.draw.text('[SPACE] to launch', cfg.canvasWidth / 2, 460, { color: '#fff', size: 22, bold: true, align: 'center' });
-      });
+      FA.draw.pushAlpha(pulse);
+      FA.draw.text('[SPACE] to launch', cfg.canvasWidth / 2, 460, { color: '#fff', size: 22, bold: true, align: 'center' });
+      FA.draw.popAlpha();
     }, 0);
 
     // === DEATH SCREEN ===
     FA.addLayer('deathScreen', function() {
       var state = FA.getState();
       if (state.screen !== 'death') return;
-      FA.draw.withAlpha(0.75, function() {
-        FA.draw.rect(0, 0, cfg.canvasWidth, cfg.canvasHeight, '#000');
-      });
+      FA.draw.pushAlpha(0.75);
+      FA.draw.rect(0, 0, cfg.canvasWidth, cfg.canvasHeight, '#000');
+      FA.draw.popAlpha();
 
       var reason = state.deathReason;
       var title = 'DESTROYED';
@@ -75,9 +75,9 @@
       }
 
       var rpulse = 0.5 + Math.sin(Date.now() * 0.005) * 0.5;
-      FA.draw.withAlpha(rpulse, function() {
-        FA.draw.text('[R] try again', cfg.canvasWidth / 2, 470, { color: '#fff', size: 20, bold: true, align: 'center' });
-      });
+      FA.draw.pushAlpha(rpulse);
+      FA.draw.text('[R] try again', cfg.canvasWidth / 2, 470, { color: '#fff', size: 20, bold: true, align: 'center' });
+      FA.draw.popAlpha();
     }, 0);
 
     // === BACKGROUND GRID ===
@@ -406,20 +406,20 @@
 
         if (warn > 0.3) {
           var textAlpha = 0.5 + Math.sin(Date.now() * 0.01) * 0.5;
-          FA.draw.withAlpha(textAlpha, function() {
-            FA.draw.text('!! RETURN TO STATION !!', cfg.canvasWidth / 2, cfg.canvasHeight / 2 - 60,
-              { color: '#f44', size: 22, bold: true, align: 'center' });
-          });
+          FA.draw.pushAlpha(textAlpha);
+          FA.draw.text('!! RETURN TO STATION !!', cfg.canvasWidth / 2, cfg.canvasHeight / 2 - 60,
+            { color: '#f44', size: 22, bold: true, align: 'center' });
+          FA.draw.popAlpha();
         }
       }
 
       // Fuel empty overlay
       if (state.ship && state.ship.fuel <= 0) {
         var fuelAlpha = 0.3 + Math.sin(Date.now() * 0.005) * 0.15;
-        FA.draw.withAlpha(fuelAlpha, function() {
-          FA.draw.text('ENGINES OFFLINE — NO FUEL', cfg.canvasWidth / 2, cfg.canvasHeight / 2 - 30,
-            { color: '#f80', size: 18, bold: true, align: 'center' });
-        });
+        FA.draw.pushAlpha(fuelAlpha);
+        FA.draw.text('ENGINES OFFLINE — NO FUEL', cfg.canvasWidth / 2, cfg.canvasHeight / 2 - 30,
+          { color: '#f80', size: 18, bold: true, align: 'center' });
+        FA.draw.popAlpha();
       }
 
       // Station direction indicator
@@ -460,11 +460,11 @@
       if (state.screen !== 'playing') return;
       if (!state.narrativeMessage || state.narrativeMessage.life <= 0) return;
       var alpha = Math.min(1, state.narrativeMessage.life / 1500);
-      FA.draw.withAlpha(alpha, function() {
-        FA.draw.rect(0, 0, cfg.canvasWidth, 44, 'rgba(0,0,0,0.7)');
-        FA.draw.text(state.narrativeMessage.text, cfg.canvasWidth / 2, 14,
-          { color: state.narrativeMessage.color, size: 14, align: 'center' });
-      });
+      FA.draw.pushAlpha(alpha);
+      FA.draw.rect(0, 0, cfg.canvasWidth, 44, 'rgba(0,0,0,0.7)');
+      FA.draw.text(state.narrativeMessage.text, cfg.canvasWidth / 2, 14,
+        { color: state.narrativeMessage.color, size: 14, align: 'center' });
+      FA.draw.popAlpha();
     }, 25);
 
     // === HUD ===
@@ -513,9 +513,9 @@
       // Repair indicator
       if (state.repairing) {
         var repPulse = 0.6 + Math.sin(Date.now() * 0.008) * 0.4;
-        FA.draw.withAlpha(repPulse, function() {
-          FA.draw.text('DOCKED', 500, y, { color: '#4f8', size: 12, bold: true });
-        });
+        FA.draw.pushAlpha(repPulse);
+        FA.draw.text('DOCKED', 500, y, { color: '#4f8', size: 12, bold: true });
+        FA.draw.popAlpha();
       }
 
       // Parts count
@@ -553,16 +553,16 @@
       var hitFlash = (Date.now() - part.lastHit) < 100;
       if (hitFlash) color = '#fff';
 
-      FA.draw.withAlpha(partAlpha, function() {
-        if (part.type === 'engine' && ship.activeEngines && ship.activeEngines.has(part)) {
-          ctx.save();
-          ctx.shadowColor = '#0ff';
-          ctx.shadowBlur = 10;
-          FA.draw.rect(part.x - 4, part.y + 12, 8, 6 + Math.random() * 8, '#0ff');
-          ctx.restore();
-        }
-        FA.draw.sprite('player', part.type, part.x - 10, part.y - 10, 20, ch, color, 0);
-      });
+      FA.draw.pushAlpha(partAlpha);
+      if (part.type === 'engine' && ship.activeEngines && ship.activeEngines.has(part)) {
+        ctx.save();
+        ctx.shadowColor = '#0ff';
+        ctx.shadowBlur = 10;
+        FA.draw.rect(part.x - 4, part.y + 12, 8, 6 + Math.random() * 8, '#0ff');
+        ctx.restore();
+      }
+      FA.draw.sprite('player', part.type, part.x - 10, part.y - 10, 20, ch, color, 0);
+      FA.draw.popAlpha();
 
       if (part.type === 'core' && part.hp < part.maxHp) {
         FA.draw.bar(part.x - 12, part.y + 12, 24, 3, part.hp / part.maxHp, '#f44', '#400');

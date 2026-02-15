@@ -114,10 +114,10 @@
       if (stroke) { _ctx.strokeStyle = stroke; _ctx.lineWidth = lineWidth || 1; _ctx.stroke(); }
     },
 
-    sprite: function(category, name, x, y, size, fallbackChar, fallbackColor) {
+    sprite: function(category, name, x, y, size, fallbackChar, fallbackColor, frame) {
       var sprite = typeof getSprite === 'function' && getSprite(category, name);
       if (sprite) {
-        drawSprite(_ctx, sprite, x, y, size);
+        drawSprite(_ctx, sprite, x, y, size, frame);
       } else if (fallbackChar) {
         _ctx.fillStyle = fallbackColor || '#fff';
         _ctx.font = Math.floor(size * 0.8) + 'px monospace';
@@ -132,6 +132,15 @@
       _ctx.globalAlpha = alpha;
       fn(_ctx);
       _ctx.globalAlpha = prev;
+    },
+
+    pushAlpha: function(alpha) {
+      _ctx._prevAlpha = _ctx.globalAlpha;
+      _ctx.globalAlpha = alpha;
+    },
+
+    popAlpha: function() {
+      _ctx.globalAlpha = _ctx._prevAlpha !== undefined ? _ctx._prevAlpha : 1;
     },
 
     withClip: function(clipFn, drawFn) {
@@ -197,10 +206,9 @@
   FA.drawFloats = function() {
     for (var i = 0; i < _floats.length; i++) {
       var f = _floats[i];
-      var alpha = FA.clamp(f.life / f.maxLife, 0, 1);
-      FA.draw.withAlpha(alpha, function() {
-        FA.draw.text(f.text, f.x, f.y, { color: f.color, size: 14, bold: true, align: 'center', baseline: 'middle' });
-      });
+      FA.draw.pushAlpha(FA.clamp(f.life / f.maxLife, 0, 1));
+      FA.draw.text(f.text, f.x, f.y, { color: f.color, size: 14, bold: true, align: 'center', baseline: 'middle' });
+      FA.draw.popAlpha();
     }
   };
 
