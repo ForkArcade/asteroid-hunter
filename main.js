@@ -121,6 +121,7 @@
 
     // Survival time
     state.survivalTime += dt / 1000;
+    Ship.updateSurvivalNarrative(state);
 
     // Wave spawning
     if (state.asteroids.length === 0) {

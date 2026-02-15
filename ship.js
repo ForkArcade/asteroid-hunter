@@ -274,6 +274,18 @@
     if (part.hp <= 0) {
       ship.parts.splice(partIndex, 1);
       FA.playSound('explosion');
+
+      // Ship damage narrative triggers
+      if (ship === state.ship) {
+        if (ship.parts.length === 1 && !state.lastPartShown) {
+          state.lastPartShown = true;
+          showNarrative('last_part');
+        } else if (ship.parts.length <= 3 && !state.shipDamagedShown) {
+          state.shipDamagedShown = true;
+          showNarrative('ship_damaged');
+        }
+      }
+
       var hasCores = false;
       for (var i = 0; i < ship.parts.length; i++) {
         if (ship.parts[i].type === 'core') { hasCores = true; break; }
@@ -328,10 +340,12 @@
 
   function spawnWave(state) {
     state.wave++;
-    var count = 2 + state.wave;
-    for (var i = 0; i < count; i++) {
-      spawnAsteroid(state, 'large');
-    }
+    var large = 2 + Math.floor(state.wave * 0.8);
+    var medium = state.wave >= 3 ? Math.floor(state.wave * 0.5) : 0;
+    var small = state.wave >= 6 ? Math.floor(state.wave * 0.3) : 0;
+    for (var i = 0; i < large; i++) spawnAsteroid(state, 'large');
+    for (var i = 0; i < medium; i++) spawnAsteroid(state, 'medium');
+    for (var i = 0; i < small; i++) spawnAsteroid(state, 'small');
     FA.playSound('waveStart');
     if (state.wave > 1) {
       var scoring = FA.lookup('config', 'scoring');
@@ -343,8 +357,12 @@
       FA.addFloat(state.ship.x, state.ship.y - 50, '+' + bonus + ' wave bonus', '#ff0', 1500);
     }
     FA.narrative.setVar('waves_survived', state.wave, 'Wave ' + state.wave);
-    if (state.wave >= 10) {
+    if (state.wave >= 15) {
+      showNarrative('wave_15');
+    } else if (state.wave >= 10) {
       showNarrative('wave_10');
+    } else if (state.wave >= 7) {
+      showNarrative('wave_7');
     } else if (state.wave >= 5) {
       showNarrative('wave_5');
     } else if (state.wave >= 3) {
@@ -486,7 +504,12 @@
       fuelCriticalShown: false,
       fuelEmptyShown: false,
       refuelNarrShown: false,
-      gravityNarrShown: false
+      gravityNarrShown: false,
+      shipDamagedShown: false,
+      lastPartShown: false,
+      survivor60: false,
+      survivor180: false,
+      survivor300: false
     });
     var narCfg = FA.lookup('config', 'narrative');
     if (narCfg) FA.narrative.init(narCfg);
@@ -513,6 +536,22 @@
     }
   }
 
+  // === SURVIVAL NARRATIVE ===
+
+  function updateSurvivalNarrative(state) {
+    var t = state.survivalTime;
+    if (t >= 300 && !state.survivor300) {
+      state.survivor300 = true;
+      showNarrative('survivor_300');
+    } else if (t >= 180 && !state.survivor180) {
+      state.survivor180 = true;
+      showNarrative('survivor_180');
+    } else if (t >= 60 && !state.survivor60) {
+      state.survivor60 = true;
+      showNarrative('survivor_60');
+    }
+  }
+
   // === EXPORT ===
 
   window.Ship = {
@@ -532,7 +571,8 @@
     startScreen: startScreen,
     beginGame: beginGame,
     gameOver: gameOver,
-    showNarrative: showNarrative
+    showNarrative: showNarrative,
+    updateSurvivalNarrative: updateSurvivalNarrative
   };
 
 })();

@@ -12,29 +12,29 @@
     partProximity: 45,
     bulletSpeed: 12,
     bulletLife: 60,
-    shootCooldown: 120,
+    shootCooldown: 200,
     thrustBase: 0.5,
     turboMultiplier: 1.8,
     friction: 0.99,
     angularFriction: 0.92,
     floatingPartLife: 600,
     pickupRadius: 40,
-    waveDelay: 3000,
-    asteroidBaseSpeed: 1.5,
+    waveDelay: 2500,
+    asteroidBaseSpeed: 2.0,
     arenaRadius: 1800,
     arenaWarning: 0.8,
-    stationHp: 25,
+    stationHp: 20,
     stationRadius: 60,
     stationRepairRange: 140,
-    repairRate: 0.5,
-    stationRepairRate: 0.3,
+    repairRate: 0.35,
+    stationRepairRate: 0.15,
     stationGravity: 200,
     gravityMaxDist: 800,
     gravityMinDist: 40,
     maxFuel: 100,
-    fuelConsumption: 4,
+    fuelConsumption: 5,
     turboFuelMultiplier: 2.5,
-    fuelRefuelRate: 15,
+    fuelRefuelRate: 10,
     stationRotationSpeed: 0.0003
   });
 
@@ -214,7 +214,14 @@
         { id: 'fuel_empty', label: 'Fuel empty', type: 'scene' },
         { id: 'refueling', label: 'Refueling', type: 'scene' },
         { id: 'gravity_warning', label: 'Gravity pull', type: 'scene' },
+        { id: 'wave_7', label: 'Asteroid storm', type: 'scene' },
         { id: 'wave_10', label: 'Hell wave', type: 'scene' },
+        { id: 'wave_15', label: 'Beyond limits', type: 'scene' },
+        { id: 'survivor_60', label: 'One minute', type: 'scene' },
+        { id: 'survivor_180', label: 'Three minutes', type: 'scene' },
+        { id: 'survivor_300', label: 'Five minutes', type: 'scene' },
+        { id: 'ship_damaged', label: 'Ship damaged', type: 'scene' },
+        { id: 'last_part', label: 'Last stand', type: 'scene' },
         { id: 'player_destroyed', label: 'Player destroyed', type: 'scene' }
       ],
       edges: [
@@ -222,7 +229,9 @@
         { from: 'first_kill', to: 'wave_clear' },
         { from: 'wave_clear', to: 'getting_intense' },
         { from: 'getting_intense', to: 'wave_5' },
-        { from: 'wave_5', to: 'wave_10' },
+        { from: 'wave_5', to: 'wave_7' },
+        { from: 'wave_7', to: 'wave_10' },
+        { from: 'wave_10', to: 'wave_15' },
         { from: 'launch', to: 'station_damaged' },
         { from: 'station_damaged', to: 'station_critical' },
         { from: 'station_critical', to: 'station_destroyed' },
@@ -233,6 +242,11 @@
         { from: 'fuel_critical', to: 'fuel_empty' },
         { from: 'launch', to: 'refueling' },
         { from: 'launch', to: 'gravity_warning' },
+        { from: 'launch', to: 'survivor_60' },
+        { from: 'survivor_60', to: 'survivor_180' },
+        { from: 'survivor_180', to: 'survivor_300' },
+        { from: 'launch', to: 'ship_damaged' },
+        { from: 'ship_damaged', to: 'last_part' },
         { from: 'launch', to: 'player_destroyed' }
       ]
     }
@@ -316,6 +330,41 @@
   FA.register('narrativeText', 'gravity_warning', {
     text: '[ NAV ] Station gravitational pull detected. Use it to your advantage, pilot.',
     color: '#88f'
+  });
+
+  FA.register('narrativeText', 'wave_7', {
+    text: '[ ALERT ] Asteroid storm forming! Multiple vectors — they\'re coming from everywhere!',
+    color: '#f80'
+  });
+
+  FA.register('narrativeText', 'wave_15', {
+    text: '[ MAYDAY ] Gravitational cascade! The entire belt is collapsing inward! This wasn\'t supposed to be possible!',
+    color: '#f44'
+  });
+
+  FA.register('narrativeText', 'survivor_60', {
+    text: '[ COMMS ] One minute in the field. Station sensors calibrating to your flight pattern. Keep it up.',
+    color: '#88f'
+  });
+
+  FA.register('narrativeText', 'survivor_180', {
+    text: '[ COMMS ] Three minutes. You\'re setting records out there, pilot. Command is watching.',
+    color: '#8cf'
+  });
+
+  FA.register('narrativeText', 'survivor_300', {
+    text: '[ COMMS ] Five minutes of continuous combat. They\'ll write songs about you, pilot. If we survive.',
+    color: '#ff0'
+  });
+
+  FA.register('narrativeText', 'ship_damaged', {
+    text: '[ HULL ] Ship integrity compromised! Dock for repairs before you lose more systems!',
+    color: '#f80'
+  });
+
+  FA.register('narrativeText', 'last_part', {
+    text: '[ HULL ] CRITICAL! Core exposed — one more hit and it\'s over! GET TO THE STATION!',
+    color: '#f44'
   });
 
   FA.register('narrativeText', 'player_destroyed', {
