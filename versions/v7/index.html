@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Asteroid Hunter — ForkArcade</title>
+  <link rel="stylesheet" href="style.css?v=7">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- SDK -->
+  <script src="forkarcade-sdk.js?v=7"></script>
+
+  <!-- Sprites -->
+  <script src="sprites.js?v=7"></script>
+
+  <!-- Engine (load order matters) -->
+  <script src="fa-engine.js?v=7"></script>
+  <script src="fa-renderer.js?v=7"></script>
+  <script src="fa-input.js?v=7"></script>
+  <script src="fa-audio.js?v=7"></script>
+  <script src="fa-narrative.js?v=7"></script>
+
+  <!-- Game (load order matters) -->
+  <script src="data.js?v=7"></script>
+  <script src="physics.js?v=7"></script>
+  <script src="ship.js?v=7"></script>
+  <script src="render.js?v=7"></script>
+  <script src="main.js?v=7"></script>
+</body>
+</html>
