@@ -561,7 +561,7 @@
           FA.draw.rect(part.x - 4, part.y + 12, 8, 6 + Math.random() * 8, '#0ff');
           ctx.restore();
         }
-        FA.draw.sprite('player', part.type, part.x - 10, part.y - 10, 20, ch, color);
+        FA.draw.sprite('player', part.type, part.x - 10, part.y - 10, 20, ch, color, 0);
       });
 
       if (part.type === 'core' && part.hp < part.maxHp) {
